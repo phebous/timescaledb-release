@@ -1,4 +1,4 @@
-# timescale-release 
+# Bosh timescale-release 
 
 This is a modification of the postgres-release 12.4 to include the extention of Timescaledb.   This was done by modifying the postgres-release to add the timescsle repository, build timescale, and create the release for timescale.   This is done by adding the source (in zip format - ./src/postgres/timescaledb-1.7.4.tar.gz) to the source of postgres (./src/postgres/postgres/postgres-12.4.tar.gz).   The release is then created with this new tar (postgres-12.4.tar.gz).  Other files were modified to the expand this archive, complile both postgres and timescale, and deploy them.   This release is referenced by timescale-release to deploy a timescale database with the extension loaded and timescale database created.  
 
