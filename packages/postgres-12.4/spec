@@ -1,0 +1,9 @@
+---
+name: postgres-12.4
+
+dependencies: []
+
+files:
+  - postgres/postgresql-12.4.tar.gz  
+#  - postgres/timescaledb-1.7.4.tar.gz
+

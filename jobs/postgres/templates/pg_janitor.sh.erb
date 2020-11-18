@@ -1,0 +1,25 @@
+#!/bin/bash -e
+
+pidnum=$$
+pname=$(basename $0)
+
+set +u
+source /var/vcap/packages/postgres-common/utils.sh
+set -u
+source /var/vcap/jobs/postgres/bin/pgconfig.sh
+
+tee_output_to_sys_log "${LOG_DIR}" "${pname}" "${LOG_FORMAT}" "janitor.log" "janitor.err.log" "${pidnum}"
+
+<% if p("janitor.script").empty? %>
+echo "Nothing to do. Going to sleep."
+sleep infinity
+<% else %>
+while :
+do
+  echo "Invoking janitor script"
+  env -i PACKAGE_DIR=${PACKAGE_DIR} PORT=${PORT} DATA_DIR=${DATA_DIR} timeout <%=p("janitor.timeout") %> ${JOB_DIR}/bin/hooks/janitor.sh
+  retcode=$?
+  echo "Janitor script invoked with return code $retcode"
+  sleep <%= p("janitor.interval") %>
+done
+<% end %>

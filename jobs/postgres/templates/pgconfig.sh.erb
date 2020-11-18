@@ -1,0 +1,55 @@
+#!/bin/bash -e
+<% if !p("databases.enable_trace").nil? && p("databases.enable_trace") %>
+ENABLE_TRACE=1
+set -x # if you want tracing disabled, set 'databases.enable_traces: false' in the manifest
+<% else %>
+ENABLE_TRACE=0
+# set -x # uncomment it if you want to enable tracing in all control scripts
+<% end %>
+current_version="12.4"
+pgversion_current="postgres-${current_version}"
+
+JOB_DIR=/var/vcap/jobs/postgres
+PACKAGE_DIR="/var/vcap/packages/${pgversion_current}"
+STORE_DIR=/var/vcap/store
+PG_STORE_DIR=${STORE_DIR}/postgres
+VERSION_FILE=${PG_STORE_DIR}/POSTGRES_DATA_VERSION
+
+DATA_DIR="${PG_STORE_DIR}/${pgversion_current}"
+
+DATA_DIR_PREVIOUS="${PG_STORE_DIR}/postgres-previous"
+DATA_DIR_OLD="${PG_STORE_DIR}/postgres-unknown"
+PACKAGE_DIR_OLD=/var/vcap/packages/postgres-unknown
+POSTGRES_UPGRADE_LOCK="$PG_STORE_DIR/POSTGRES_UPGRADE_LOCK"
+pgversion_upgrade_from=postgres-unknown
+
+if [ -f "${VERSION_FILE}" ]; then
+  pgversion_upgrade_from=$(cat ${VERSION_FILE})
+  DATA_DIR_OLD="${PG_STORE_DIR}/${pgversion_upgrade_from}"
+  PACKAGE_DIR_OLD=/var/vcap/packages/${pgversion_upgrade_from}
+fi
+<%
+if !['rfc3339', 'deprecated'].include?(p('databases.logging.format.timestamp'))
+  raise "'#{p('databases.logging.format.timestamp')}' is not a valid timestamp format for the property 'databases.logging.format.timestamp'. Valid options are: 'rfc339' and 'deprecated'."
+end
+%>
+RUN_DIR=/var/vcap/sys/run/postgres
+LOG_DIR=/var/vcap/sys/log/postgres
+LOG_FORMAT=<%= p("databases.logging.format.timestamp") %>
+HOOK_LOG_OUT=${LOG_DIR}/hooks.stdout.log
+HOOK_LOG_ERR=${LOG_DIR}/hooks.stderr.log
+# external_pid_file in postgresql.conf takes care of
+# overwriting $PIDFILE with actual DB server pid
+PIDFILE="${RUN_DIR}/postgres.pid"
+CONTROL_JOB_PIDFILE="${RUN_DIR}/postgresctl.pid"
+PGJANITOR_PIDFILE="${RUN_DIR}/pg_janitor.pid"
+
+HOST="0.0.0.0"
+PORT="<%= p("databases.port") %>"
+
+if [[ -n "${LD_LIBRARY_PATH:-}" ]]; then
+  LD_LIBRARY_PATH="${PACKAGE_DIR}/lib:${LD_LIBRARY_PATH}"
+else
+  LD_LIBRARY_PATH="${PACKAGE_DIR}/lib"
+fi
+DATABASES=(<%= p("databases.databases", []).map{|d| d["name"]}.join(' ')%>)
