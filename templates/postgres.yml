@@ -1,36 +1,58 @@
-name: timescaledb
+name: timescale
+instance_groups:
+- azs:
+  - z1
+  instances: 1
+  jobs:
+  - name: postgres
+    properties:
+      databases:
+        port: 5524
+        tls:
+          ca: ((postgres_cert.ca))
+          certificate: ((postgres_cert.certificate))
+          private_key: ((postgres_cert.private_key))
+        additional_config:
+          shared_preload_libraries: timescaledb
+        databases:
+          - name: timescale
+        hooks:
+          post_start: |
+            #!/bin/bash
+            for i in {10..0}; do
+              result=$(${PACKAGE_DIR}/bin/psql -p ${PORT} -U vcap postgres -t -P format=unaligned -c "SELECT 1 from pg_database WHERE datname='timescale'")
+              if [ "$result" == "1" ]; then
+                break
+              fi
+              echo "Database timescale does not exists yet; trying $i more times"
+              sleep 1
+            done
+            if [ "$i" == "0" ]; then
+              echo "Time out waiting for the database to be created"
+              exit 1
+            fi
+            ${PACKAGE_DIR}/bin/psql -p ${PORT} -U vcap timescale -c "create extension if not exists timescaledb" 
 
+    provides:
+      postgres:
+        as: postgres-database
+    release: timescaledb
+  name: timescaledb
+  networks:
+  - name: default
+  persistent_disk_type: large
+  stemcell: default
+  vm_type: default
+releases:
+- name: timescaledb
+  version: 1
+stemcells:
+- alias: default
+  os: ubuntu-xenial
+  version: latest
 update:
   canaries: 1
   canary_watch_time: 30000-600000
   max_in_flight: 1
   serial: true
   update_watch_time: 5000-600000
-
-releases:
-- name: postgres
-  version: latest
-
-stemcells:
-- alias: default
-  os: ubuntu-xenial
-  version: latest
-
-instance_groups:
-- name: postgres
-  instances: 1
-  stemcell: default
-  networks:
-  - name: default
-  azs:
-  - z1
-  vm_type: small
-  persistent_disk_type: 10GB
-  jobs:
-  - name: postgres
-    release: postgres
-    provides:
-      postgres: {as: postgres-database}
-    properties:
-      databases:
-        port: 5524
